@@ -1,4 +1,3 @@
-# db_seed.py - Database Initialization Script
 from pymongo import MongoClient
 from werkzeug.security import generate_password_hash
 from datetime import datetime, timedelta
@@ -105,7 +104,7 @@ def seed_database():
         db.doctor_profiles.insert_one(profile)
         print(f"Created profile for doctor: {profile['specialty']}")
     
-    # Seed patients
+
     patients_data = [
         {
             'email': 'john.smith@email.com',

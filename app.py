@@ -1,4 +1,3 @@
-# app.py - Main Flask Application
 from flask import Flask, request, jsonify
 from flask.json.provider import DefaultJSONProvider
 from flask_pymongo import PyMongo
@@ -23,7 +22,6 @@ mongo = PyMongo(app)
 jwt = JWTManager(app)
 CORS(app)
 
-# Custom JSON Encoder for ObjectId (Flask 2.2+ compatible)
 from flask.json.provider import DefaultJSONProvider
 
 class UpdatedJSONProvider(DefaultJSONProvider):
@@ -75,7 +73,6 @@ def role_required(required_role):
         return decorated_function
     return decorator
 
-# Authentication Endpoints
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     try:
@@ -135,8 +132,7 @@ def register():
         # Insert user
         result = mongo.db.users.insert_one(user_doc)
         user_id = result.inserted_id
-        
-        # Create profile based on user type
+
         if data['user_type'] == 'doctor':
             doctor_profile = {
                 'user_id': user_id,
@@ -196,11 +192,9 @@ def login():
                 'status': 'error',
                 'message': 'Account is deactivated'
             }), 403
-        
-        # Create access token
+
         access_token = create_access_token(identity=str(user['_id']))
-        
-        # Update last login
+
         mongo.db.users.update_one(
             {'_id': user['_id']},
             {'$set': {'last_login': datetime.utcnow()}}
@@ -227,7 +221,6 @@ def login():
             'message': f'Login failed: {str(e)}'
         }), 500
 
-# Core Feature 1: Get Available Doctors
 @app.route('/api/appointments/doctors', methods=['GET'])
 def get_available_doctors():
     try:
@@ -245,7 +238,7 @@ def get_available_doctors():
                 'message': 'Invalid pagination parameters'
             }), 400
         
-        # Build aggregation pipeline
+
         pipeline = [
             {
                 '$match': {
@@ -266,15 +259,14 @@ def get_available_doctors():
             }
         ]
         
-        # Add specialty filter
+
         if specialty:
             pipeline.append({
                 '$match': {
                     'profile.specialty': {'$regex': specialty, '$options': 'i'}
                 }
             })
-        
-        # Add location filter (simplified for demo)
+
         if location:
             pipeline.append({
                 '$match': {
@@ -282,7 +274,7 @@ def get_available_doctors():
                 }
             })
         
-        # Add projection
+
         pipeline.append({
             '$project': {
                 'id': '$_id',
@@ -294,8 +286,7 @@ def get_available_doctors():
                 'next_available': datetime.utcnow().isoformat()
             }
         })
-        
-        # Execute aggregation with pagination
+
         skip = (page - 1) * limit
         pipeline.extend([
             {'$skip': skip},
@@ -304,8 +295,8 @@ def get_available_doctors():
         
         doctors = list(mongo.db.users.aggregate(pipeline))
         
-        # Get total count for pagination
-        count_pipeline = pipeline[:-2]  # Remove skip and limit
+
+        count_pipeline = pipeline[:-2]
         count_pipeline.append({'$count': 'total'})
         total_result = list(mongo.db.users.aggregate(count_pipeline))
         total_doctors = total_result[0]['total'] if total_result else 0
@@ -336,7 +327,7 @@ def get_available_doctors():
             'message': f'Failed to retrieve doctors: {str(e)}'
         }), 500
 
-# Core Feature 2: Book Appointment
+
 @app.route('/api/appointments', methods=['POST'])
 @role_required('patient')
 def book_appointment():
@@ -376,7 +367,6 @@ def book_appointment():
         
         # Validate appointment date
         try:
-            # Parse the datetime and convert to UTC naive for consistent comparison
             appointment_date_str = data['appointment_date'].replace('Z', '+00:00')
             appointment_date_aware = datetime.fromisoformat(appointment_date_str)
             # Convert to naive UTC datetime
@@ -387,8 +377,7 @@ def book_appointment():
                 'status': 'error',
                 'message': 'Invalid appointment date format. Use ISO 8601 (e.g., 2025-07-25T14:00:00Z)'
             }), 400
-        
-        # Check if appointment is in the future (both are now naive UTC)
+
         if appointment_date <= datetime.utcnow():
             return jsonify({
                 'status': 'error',
@@ -437,7 +426,7 @@ def book_appointment():
                 'message': 'Time slot no longer available'
             }), 409
         
-        # Get doctor profile for consultation fee
+
         doctor_profile = mongo.db.doctor_profiles.find_one({'user_id': doctor_id})
         consultation_fee = doctor_profile.get('consultation_fee', 150.0) if doctor_profile else 150.0
         
@@ -491,7 +480,7 @@ def book_appointment():
             'message': f'Failed to book appointment: {str(e)}'
         }), 500
 
-# Health check endpoint
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({
@@ -500,7 +489,7 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat()
     }), 200
 
-# Error handlers
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({
